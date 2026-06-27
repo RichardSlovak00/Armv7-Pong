@@ -2,7 +2,8 @@
 /* this file contains all necessary functions to work with the terminal to
  * to create the pong game in 32bit ARM assembly */
 .ifndef TERM_ASM
-.equ 	TERM_ASM, 0x0
+.set 	TERM_ASM, 1
+
 
 
 .include "strings.asm"
@@ -44,6 +45,29 @@
 .equ	N_STYLE_BLINK,		0x0006
 .equ	N_STYLE_BLIND_RAPID,	0x0007
 
+.equ	TERM_VLAG_FG_COLOR_SECTOR_POS,	0x0000
+.equ	TERM_VLAG_BG_COLOR_SECTOR_POS,	0x0003
+.equ	TERM_VLAG_OTHER_SECTOR_POS,	0x0006
+
+.equ	TERM_VLAG_FG_COLOR_SECTOR_LEN,	0x0003
+.equ	TERM_VLAG_BG_COLOR_SECTOR_LEN,	0x0003
+.equ	TERM_VLAG_OTHER_SECTOR_LEN,	0x0003
+
+.equ	TERM_VLAG_FG_COLOR_NONE,	0x0000
+.equ	TERM_VLAG_FG_COLOR_RED,		0x0001
+.equ	TERM_VLAG_FG_COLOR_BLUE,	0x0002
+.equ	TERM_VLAG_FG_COLOR_GREEN,	0x0004
+.equ	TERM_VLAG_BG_COLOR_RED,		0x0008
+.equ	TERM_VLAG_BG_COLOR_BLUE,	0x0010
+.equ	TERM_VLAG_BG_COLOR_GREEN,	0x0020
+.equ	TERM_VLAG_BLINK,		0x0040
+
+.macro TERM_VFLAG_SECTOR_MASK flag, save, name
+	mov \save, #1, lsl \name_LEN
+	sub \save, \save, #1
+	lsl \save, \save, \name_SECTOR_POS
+	and \save, \flag, \save
+.endm /* TERM_VLAG_FG_COLOR_SECOND_MASK */
 
 /* NOTE: doesnt work for all formats (moveto) */
 
@@ -71,30 +95,51 @@ moveto_code_end:
 
 .text
 
-/* Clears the terminal screen
+/* Clears the terminal screen.
  * void term_screen_clear()
  * */
 term_clear_screen:
 	TERM_FORMAT_PRINT A_OUTFORMAT_CLEAR_SCREEN, N_CLEAR_SCREEN
 
+/* Resets everything in the terminal.
+ * void term_reset_all()
+ * */
 term_reset_all:
 	TERM_FORMAT_PRINT A_OUTFORMAT_RESET_ALL, N_RESET_ALL
 
+/* Foreground red color in the terminal.
+ * void term_color_red()
+ * */
 term_color_red:
 	TERM_FORMAT_PRINT A_OUTFORMAT_COLOR_RED, N_COLOR_RED
 
+/* Foreground blue color in the terminal.
+ * void term_color_blue()
+ * */
 term_color_blue:
 	TERM_FORMAT_PRINT A_OUTFORMAT_COLOR_BLUE, N_COLOR_BLUE
 
+/* Background red color in the terminal.
+ * void term_background_red()
+ * */
 term_background_red:
 	TERM_FORMAT_PRINT A_OUTFORMAT_BACKGROUND_RED, N_BACKGROUND_RED
 
+/* Background blue color in the terminal.
+ * void term_background_blue()
+ * */
 term_background_blue:
 	TERM_FORMAT_PRINT A_OUTFORMAT_BACKGROUND_BLUE, N_BACKGROUND_BLUE
 
+/* Terminal blinking.
+ * void term_style_blink()
+ * */
 term_style_blink:
 	TERM_FORMAT_PRINT A_OUTFORMAT_STYLE_BLINK, N_STYLE_BLINK
 
+/* Terminal rapid blinking.
+ * void term_style_blink_rapid
+ * */
 term_style_blink_rapid:
 	TERM_FORMAT_PRINT A_OUTFORMAT_STYLE_BLINK_RAPID, N_STYLE_BLINK_RAPID
 
@@ -105,7 +150,8 @@ term_style_blink_rapid:
  * the code from it.
  * @I32 r: row position
  * @i32 c: col position
- * void term_moveto(I32 r, I32 c) */
+ * void term_moveto(I32 r, I32 c)
+ * */
 term_moveto:
 	push {r4, r5, r6, fp, lr}
 	mov fp, sp
@@ -391,8 +437,8 @@ term_print_int:
 	bx lr
 
 /* Prints a character.
- * @char c: character to print
- * void term_print_char(char c)
+ * @char *c: character to print
+ * void term_print_char(char *c)
  * */
 term_print_char:
 	push {fp, lr}
@@ -402,8 +448,8 @@ term_print_char:
 	bx lr
 
 /* Prints a character.
- * @char *c: character pointer to print the dereferenced value of
- * void term_print_char2(char *c)
+ * @char c: character pointer to print the dereferenced value of
+ * void term_print_char2(char c)
  * */
 term_print_char2:
 	push {fp, lr}
@@ -415,5 +461,66 @@ term_print_char2:
 	add sp, #0x8
 	pop {fp, lr}
 	bx lr
+
+/* Prints out a row of character c of a given color of some length.
+ * @char c: character to print out in the row
+ * @int len: length of the row
+ * @int v_flag:	indicating what kind of decorations we want for the row
+ * */
+term_print_row:
+	push {r4, r5, r6, fp, lr}
+term_print_row_loop:
+	cmp r1, #0
+	beq term_print_row_end
+	sub r1, r1, #1
+	mov r4, r0
+	mov r5, r1
+	mov r6, r2
+	bl term_print_char2
+	mov r0, r4
+	mov r1, r5
+	mov r2, r6	
+	b term_print_row_loop
+term_print_row_end:
+	pop {r4, r5, r6, fp, lr}
+	bx lr
+	
+/* Prints out a square made of character c of a given color of some size.
+ * @char c: character to use for the square
+ * @int color: macro value for a color
+ * @int size_x: width of the rectangle
+ * @int size_y: height of the rectangle
+ * @int border: should we only print out the border of the rectangle
+ * void term_print_rect()
+ * */
+term_print_rect:
+	push {r4, r5, r6, fp, lr}
+	mov fp, sp
+	mov r4, r2		// size_x
+	mov r5, r3		// size_y
+	ldr r6, [fp]		// border	
+term_print_rect_loop_y:
+	cmp r5, #0
+	beq term_print_rect_end
+	push {r0}
+	mov r1, r4
+	bl term_print_row
+	mov r0, #'\n'
+	bl term_print_char2
+	sub r5, r5, #1
+	pop {r0}
+	b term_print_rect_loop_y
+term_print_rect_end:
+	pop {r4, r5, r6, fp, lr}
+	bx lr
+
+/* Prints out a square made of character c of a given color of some size.
+ * @char c: character to use for the square
+ * @int color: macro value for a color
+ * @int size: size of the square
+ * @int border: should we only print out the border of the square
+ * void term_print_square()
+ * */
+term_print_square:
 
 .endif	/* TERM_ASM */

@@ -6,7 +6,7 @@
  * */
 
 .ifndef PONG_ASM
-.equ	PONG_ASM,	0x0
+.set PONG_ASM, 1
 
 .include "term.asm"
 
@@ -30,14 +30,46 @@ char_asterisk_adr:
 .global draw_game
 .global move_player
 
+.ifndef LEFT_WALL_BOUND
 .equ LEFT_WALL_BOUND,	2
+.endif /* LEFT_WALL_BOUND */
 
+.ifndef PLAYER_SIZE
 .equ PLAYER_SIZE,	5
+.endif /* PLAYER_SIZE */
+
+.ifndef PLAYER_UP
 .equ PLAYER_UP,		-1
+.endif /* PLAYER_UP */
+
+.ifndef PLAYER_DOWN
 .equ PLAYER_DOWN,	1
+.endif /* PLAYER_DOWN */
+
+.ifndef SIDE_LEFT
 .equ SIDE_LEFT,		-1
+.endif /* SIDE_LEFT*/
+
+.ifndef SIDE_RIGHT
 .equ SIDE_RIGHT,	1
+.endif /* SIDE_RIGHT */
+
+.ifndef SIDE_NONE
 .equ SIDE_NONE,		0
+.endif /* SIDE_NONE */
+
+.ifndef LEFT_OFFSET
+.equ LEFT_OFFSET,	2
+.endif /* LEFT_OFFSET */
+
+.ifndef RIGHT_OFFSET
+.equ RIGHT_OFFSET,	3
+.endif /* RIGHT_OFFSET */
+
+.ifndef ROW_OFFSET
+.equ ROW_OFFSET,	3
+.endif /* ROW_OFFSET */
+
 
 .equ CHAR_SPACE,	32
 .equ CHAR_ASTERISK,	42
@@ -50,7 +82,7 @@ char_asterisk_adr:
 .equ CHAR_P_L,		112
 .equ CHAR_L_L,		108
 
-.equ DEBUG,		0x0
+//.equ DEBUG,		0x0
 
 /* 32 bytes */
 /* struct Game{
@@ -221,6 +253,7 @@ move_ball:
 
 	GAME_GET_BALL_R r1, r0
 	GAME_GET_BALL_C r2, r0
+.ifndef NO_PRINT
 	push {r0,r1,r2}
 	mov r0, r1
 	mov r1, r2
@@ -232,6 +265,7 @@ move_ball:
 	mov r0, r2
 	bl term_print_char
 	pop {r0}		// game game state back
+.endif /* NO_PRINT */
 
 	GAME_GET_BALL_R r1, r0
 	GAME_GET_BALL_C r2, r0
@@ -251,6 +285,7 @@ move_ball:
 	
 	GAME_SET_BALL_R r1, r0
 	GAME_SET_BALL_C r2, r0
+
 	push {r0, r1, r2}		// save game, ball_r, ball_c
 	mov r0, r1
 	mov r1, r2
@@ -264,7 +299,7 @@ move_ball:
 	
 	cmp r1, #2			// ball_r == 2 ?
 	beq move_ball_change_dir_hor
-	sub r4, r3, #3			// rows - 3
+	sub r4, r3, #ROW_OFFSET		// rows - 3
 	cmp r1, r4			// ball_r == rows - 3 ?
 	bne move_ball_ver
 
@@ -306,6 +341,7 @@ move_ball_ver_other:
 	/* this needs to be 
 	 * done because of alignement issues
 	 * */
+
 	push {r0,r1,r2,r3}
 	mov r0, r2
 	bl term_print_char
@@ -334,7 +370,7 @@ move_ball_ver_other_and2:
 
 /* check for left wall collision*/
 move_ball_wall_bound:
-	cmp r2, #LEFT_WALL_BOUND
+	cmp r2, #LEFT_OFFSET
 	bne move_ball_wall_bound2	// if its not jump to right wall bound
 	GAME_GET_BALL_DIR_C r3,r0
 	mov r4, #-1			// prepare for inverse
@@ -344,7 +380,7 @@ move_ball_wall_bound:
 /* right wall bound */
 move_ball_wall_bound2:
 	GAME_GET_COLS r3, r0
-	sub r3,r3, #3
+	sub r3,r3, #RIGHT_OFFSET
 
 //	push {r0, r1, r2, r3}
 //	mov r0, r3

@@ -1,6 +1,6 @@
 .arm
 .ifndef STRINGS_ASM
-.equ	STRINGS_ASM, 0x0
+.set STRINGS_ASM, 1
 
 .equ	STRINGS_NUM, 		0x30	// '0'
 .equ	STRINGS_NULL_TERM,	0x00	// '\0'
